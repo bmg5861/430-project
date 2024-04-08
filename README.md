@@ -1,2 +1,2 @@
 # 430-project
-Project 3 local public library. Authors: <br> Brendan Gaffney, Ryan Brennan.
+Project 3 local public library.<br>Authors: Brendan Gaffney, Ryan Brennan.
