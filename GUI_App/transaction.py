@@ -1,102 +1,97 @@
 import tkinter as tk
+from tkinter import ttk
+from tkinter import messagebox
+# import cx_Oracle here if you're using it
 
 class TransactionsPage(tk.Frame):
     def __init__(self, parent, controller):
-        super().__init__(parent, bg='#eeeeee')  # Set the background to light gray
+        super().__init__(parent)
         self.controller = controller
         
-        # Header Label
-        tk.Label(self, text="Transactions Page", font=("Arial", 18, 'bold'), bg='#eeeeee', fg='#1155cc').pack(pady=(20, 10))
-        
-        # Main Content Frame
-        content_frame = tk.Frame(self, bg='#eeeeee')
-        content_frame.pack(fill='both', expand=True, padx=50, pady=20)
-        
-        # Transaction Functionality Buttons
-        btn_checkout_item = tk.Button(content_frame, text="Checkout Item", font=("Arial", 14), bg='#1155cc', fg='white', bd=0,
-                                      padx=20, pady=10, command=self.checkout_item)
-        btn_checkout_item.pack(pady=10)
-        
-        btn_return_item = tk.Button(content_frame, text="Return Item", font=("Arial", 14), bg='#1155cc', fg='white', bd=0,
-                                    padx=20, pady=10, command=self.return_item)
-        btn_return_item.pack(pady=10)
-        
-        btn_renew_item = tk.Button(content_frame, text="Renew Item", font=("Arial", 14), bg='#1155cc', fg='white', bd=0,
-                                   padx=20, pady=10, command=self.renew_item)
-        btn_renew_item.pack(pady=10)
+        tk.Label(self, text="Transactions Management").pack(pady=10)
 
-        # Back to Home Button with Enhanced Styling
-        back_button = tk.Button(self, text="← Back to Home", font=("Arial", 12), bg='#1155cc', fg='white', bd=0,
-                                padx=10, pady=5, command=lambda: controller.show_frame("HomePage"))
-        back_button.pack(side='bottom', pady=(10, 20))
-        
-        # Mouse Hover Effects for the Back Button
-        back_button.bind("<Enter>", lambda e: back_button.config(bg="#0d3d82"))
-        back_button.bind("<Leave>", lambda e: back_button.config(bg="#1155cc"))
+        # Search Bar
+        search_frame = tk.Frame(self)
+        search_frame.pack(fill='x', padx=10)
+        self.search_var = tk.StringVar()
+        tk.Entry(search_frame, textvariable=self.search_var).pack(side='left', fill='x', expand=True, padx=(0, 5))
+        tk.Button(search_frame, text="Search", command=self.search_items).pack(side='right')
 
-    def checkout_item(self):
-        print("Checkout item functionality goes here.")
+        # Transaction Table
+        self.transaction_tree = self.create_transaction_table()
+        self.load_transactions()
 
-    def return_item(self):
-        print("Return item functionality goes here.")
+        # Transaction buttons
+        btn_frame = tk.Frame(self)
+        btn_frame.pack(pady=10)
+        tk.Button(btn_frame, text='Checkout', command=self.handle_checkout).pack(side=tk.LEFT, padx=5)
+        tk.Button(btn_frame, text='Return', command=self.handle_return).pack(side=tk.LEFT, padx=5)
+        tk.Button(btn_frame, text='Renew', command=self.handle_renew).pack(side=tk.LEFT, padx=5)
 
-    def renew_item(self):
-        print("Renew item functionality goes here.")
+        # Enhanced Back to Home button with styling
+        back_button = tk.Button(self, text="← Back to Home", command=lambda: controller.show_frame("HomePage"))
+        back_button.pack(pady=10)
+        back_button.config(font=("Arial", 12), bg="#4CAF50", fg="white", bd=0, padx=10, pady=5)
+        back_button.bind("<Enter>", lambda e: back_button.config(bg="#45a049"))
+        back_button.bind("<Leave>", lambda e: back_button.config(bg="#4CAF50"))
 
+    def create_transaction_table(self):
+        columns = ('Title', 'ISBN', 'Borrow Date', 'Return Date')
+        tree = ttk.Treeview(self, columns=columns, show='headings')
+        tree.heading('Title', text='Title')
+        tree.heading('ISBN', text='ISBN')
+        tree.heading('Borrow Date', text='Borrow Date')
+        tree.heading('Return Date', text='Return Date')
+        tree.pack(expand=True, fill='both', padx=10, pady=10)
 
+        # Scrollbar
+        scrollbar = ttk.Scrollbar(self, orient='vertical', command=tree.yview)
+        tree.configure(yscroll=scrollbar.set)
+        scrollbar.pack(side='right', fill='y')
 
+        return tree
 
+    def load_transactions(self):
+        # Replace this with actual data fetching logic
+        for item in self.get_all_items():
+            self.transaction_tree.insert('', 'end', values=(item['title'], item['isbn'], item['borrow date'], item['return date']))
 
+    def get_selected_item(self):
+        selection = self.transaction_tree.selection()
+        if selection:
+            return self.transaction_tree.item(selection[0])['values']
+        else:
+            messagebox.showwarning("Selection", "No item selected")
+            return None
 
+    def handle_checkout(self):
+        item = self.get_selected_item()
+        if item:
+            # Implement the checkout functionality here
+            pass
 
+    def handle_return(self):
+        item = self.get_selected_item()
+        if item:
+            # Implement the return functionality here
+            pass
 
+    def handle_renew(self):
+        item = self.get_selected_item()
+        if item:
+            # Implement the renew functionality here
+            pass
 
-'''''
-import tkinter as tk
+    def search_items(self):
+        # Filter and update the table with search results
+        pass
 
-class TransactionsPage(tk.Frame):
-    def __init__(self, parent, controller):
-        super().__init__(parent, bg='#eeeeee')  # Set the background to light gray
-        self.controller = controller
-        
-        # Header Label
-        tk.Label(self, text="Transactions Page", font=("Arial", 18, 'bold'), bg='#eeeeee', fg='#1155cc').pack(pady=(20, 10))
-        
-        # Main Content Frame
-        content_frame = tk.Frame(self, bg='#eeeeee')
-        content_frame.pack(fill='both', expand=True, padx=50, pady=20)
-        
-        # Transaction Functionality Buttons
-        btn_checkout_item = tk.Button(content_frame, text="Checkout Item", font=("Arial", 14), bg='#1155cc', fg='white', bd=0,
-                                      padx=20, pady=10, command=self.checkout_item)
-        btn_checkout_item.pack(pady=10)
-        
-        btn_return_item = tk.Button(content_frame, text="Return Item", font=("Arial", 14), bg='#1155cc', fg='white', bd=0,
-                                    padx=20, pady=10, command=self.return_item)
-        btn_return_item.pack(pady=10)
-        
-        btn_renew_item = tk.Button(content_frame, text="Renew Item", font=("Arial", 14), bg='#1155cc', fg='white', bd=0,
-                                   padx=20, pady=10, command=self.renew_item)
-        btn_renew_item.pack(pady=10)
+    def get_all_items(self):
+        # Placeholder for a database query to get all items (books, serials, DVDs)
+        return [
+            {'title': 'Example Book Title', 'isbn': '1234567890123', 'borrow date': '1/2/12', 'return date': 'Never'},
+            {'title': 'Example DVD Title', 'isbn': '9876543210987', 'borrow date': '1/3/12', 'return date': 'Maybe'},
+            # ... add more items
+        ]
 
-        # Back to Home Button with Enhanced Styling
-        back_button = tk.Button(self, text="← Back to Home", font=("Arial", 12), bg='#1155cc', fg='white', bd=0,
-                                padx=10, pady=5, command=lambda: controller.show_frame("HomePage"))
-        back_button.pack(side='bottom', pady=(10, 20))
-        
-        # Mouse Hover Effects for the Back Button
-        back_button.bind("<Enter>", lambda e: back_button.config(bg="#0d3d82"))
-        back_button.bind("<Leave>", lambda e: back_button.config(bg="#1155cc"))
-
-    def checkout_item(self):
-        print("Checkout item functionality goes here.")
-
-    def return_item(self):
-        print("Return item functionality goes here.")
-
-    def renew_item(self):
-        print("Renew item functionality goes here.")
-
-
-
-'''''
+# The actual transaction logic would interact with the database to check out, return, or renew items.
