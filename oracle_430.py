@@ -5,8 +5,8 @@ connection = None
 try:
     dsn_tns = cx_Oracle.makedsn('h3oracle.ad.psu.edu', '1521', 
                                 service_name = 'orclpdb.ad.psu.edu')
-    connection = cx_Oracle.connect(user = "<bmg5861>", 
-                                   password = "<Blue1212.>", dsn = dsn_tns)
+    connection = cx_Oracle.connect(user = "<username>", 
+                                   password = "<password>", dsn = dsn_tns)
 
     # show the version of the Oracle Database
     print(connection.version)
