@@ -1,21 +1,23 @@
 import tkinter as tk
 from tkinter import ttk
-from tkinter import messagebox
-# import cx_Oracle here if you're using it
+from tkinter import simpledialog, messagebox
+import db
+
+connection = db.Connection()
 
 class TransactionsPage(tk.Frame):
     def __init__(self, parent, controller):
         super().__init__(parent)
         self.controller = controller
         
-        tk.Label(self, text="Transactions Management").pack(pady=10)
+        tk.Label(self, text="Transactions Management", font=("Arial", 16)).pack(pady=10)
 
         # Search Bar
         search_frame = tk.Frame(self)
         search_frame.pack(fill='x', padx=10)
         self.search_var = tk.StringVar()
         tk.Entry(search_frame, textvariable=self.search_var).pack(side='left', fill='x', expand=True, padx=(0, 5))
-        tk.Button(search_frame, text="Search", command=self.search_items).pack(side='right')
+        tk.Button(search_frame, text="Search", command=self.search_transactions).pack(side='right')
 
         # Transaction Table
         self.transaction_tree = self.create_transaction_table()
@@ -36,12 +38,11 @@ class TransactionsPage(tk.Frame):
         back_button.bind("<Leave>", lambda e: back_button.config(bg="#4CAF50"))
 
     def create_transaction_table(self):
-        columns = ('Title', 'ISBN', 'Borrow Date', 'Return Date')
+        columns = ('TransactionID', 'CustomerID', 'ItemType', 'ISBN', 'TransactionType', 'TransactionDate')
         tree = ttk.Treeview(self, columns=columns, show='headings')
-        tree.heading('Title', text='Title')
-        tree.heading('ISBN', text='ISBN')
-        tree.heading('Borrow Date', text='Borrow Date')
-        tree.heading('Return Date', text='Return Date')
+        for col in columns:
+            tree.heading(col, text=col.replace('ID', ' ID').replace('Type', ' Type').replace('Date', ' Date'))
+            tree.column(col, anchor='center')
         tree.pack(expand=True, fill='both', padx=10, pady=10)
 
         # Scrollbar
@@ -52,46 +53,123 @@ class TransactionsPage(tk.Frame):
         return tree
 
     def load_transactions(self):
-        # Replace this with actual data fetching logic
-        for item in self.get_all_items():
-            self.transaction_tree.insert('', 'end', values=(item['title'], item['isbn'], item['borrow date'], item['return date']))
+        """Fetches all transactions from the database and displays them in the treeview."""
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute("""
+                    SELECT t.TransactionID, t.CustomerID, 
+                        i.ItemType,
+                        CASE i.ItemType 
+                            WHEN 'book' THEN b.ISBN
+                            WHEN 'serial' THEN s.ISBN
+                            WHEN 'dvd' THEN d.ISBN
+                        END AS ISBN,
+                        t.TransactionType, TO_CHAR(t.TransactionDate, 'YYYY-MM-DD') AS TransactionDate
+                    FROM Transactions t
+                    JOIN ItemLoans i ON t.LoanID = i.LoanID
+                    LEFT JOIN Books b ON i.ItemID = b.BookID AND i.ItemType = 'book'
+                    LEFT JOIN Serials s ON i.ItemID = s.SerialID AND i.ItemType = 'serial'
+                    LEFT JOIN DVDs d ON i.ItemID = d.DVDID AND i.ItemType = 'dvd'
+                """)
+                rows = cursor.fetchall()
 
-    def get_selected_item(self):
-        selection = self.transaction_tree.selection()
-        if selection:
-            return self.transaction_tree.item(selection[0])['values']
-        else:
-            messagebox.showwarning("Selection", "No item selected")
-            return None
+            self.transaction_tree.delete(*self.transaction_tree.get_children())
+            for row in rows:
+                self.transaction_tree.insert('', 'end', values=row)
+        except Exception as e:
+            messagebox.showerror("Database Error", f"Failed to load transactions: {str(e)}")
+            print(e)
+
+    def search_transactions(self):
+        """Searches transactions based on the provided search term in the search bar."""
+        search_term = self.search_var.get().strip()
+        if not search_term:
+            messagebox.showwarning("Search", "Please enter a search term.")
+            return
+
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute("""
+                    SELECT t.TransactionID, t.CustomerID, t.ItemType, 
+                        CASE t.ItemType 
+                            WHEN 'book' THEN b.ISBN
+                            WHEN 'serial' THEN s.ISBN
+                            WHEN 'dvd' THEN d.ISBN
+                        END AS ISBN,
+                        t.TransactionType, t.TransactionDate
+                    FROM Transactions t
+                    LEFT JOIN Books b ON t.ItemID = b.BookID AND t.ItemType = 'book'
+                    LEFT JOIN Serials s ON t.ItemID = s.SerialID AND t.ItemType = 'serial'
+                    LEFT JOIN DVDs d ON t.ItemID = d.DVDID AND t.ItemType = 'dvd'
+                    WHERE UPPER(t.TransactionType) LIKE UPPER(:1) OR UPPER(b.ISBN) LIKE UPPER(:1) OR UPPER(s.ISBN) LIKE UPPER(:1) OR UPPER(d.ISBN) LIKE UPPER(:1)
+                """, ('%' + search_term + '%',))
+                rows = cursor.fetchall()
+
+            self.transaction_tree.delete(*self.transaction_tree.get_children())
+            for row in rows:
+                self.transaction_tree.insert('', 'end', values=row)
+        except Exception as e:
+            messagebox.showerror("Database Error", f"Failed to search transactions: {str(e)}")
+            print(e)
 
     def handle_checkout(self):
+    #"""Handles checkout operations for selected items."""
         item = self.get_selected_item()
         if item:
-            # Implement the checkout functionality here
-            pass
+            customer_id = simpledialog.askstring("Input", "Enter Customer ID:")
+            item_id = item[0]  # Assuming the first value in the item tuple is the item ID
+            item_type = item[2]  # Assuming the third value is the item type
+
+            if not customer_id:
+                messagebox.showwarning("Input Error", "Customer ID is required for checkout.")
+                return
+
+            try:
+                with connection.cursor() as cursor:
+                    cursor.execute("""
+                        INSERT INTO Transactions (CustomerID, LoanID, TransactionType, TransactionDate)
+                        VALUES (:1, :2, 'checkout', SYSDATE)
+                    """, (customer_id, item_id))
+                    connection.commit()
+                messagebox.showinfo("Checkout", f"Item {item_id} checked out successfully to customer {customer_id}.")
+            except Exception as e:
+                messagebox.showerror("Database Error", f"Failed to checkout item: {str(e)}")
+                print(e)
 
     def handle_return(self):
+        """Handles return operations for selected items."""
         item = self.get_selected_item()
         if item:
-            # Implement the return functionality here
-            pass
+            transaction_id = item[0]  # Assuming the first value in the item tuple is the transaction ID
+
+            try:
+                with connection.cursor() as cursor:
+                    cursor.execute("""
+                        UPDATE Transactions
+                        SET TransactionType = 'return', TransactionDate = SYSDATE
+                        WHERE TransactionID = :1 AND TransactionType = 'checkout'
+                    """, (transaction_id,))
+                    connection.commit()
+                messagebox.showinfo("Return", f"Item associated with transaction {transaction_id} returned successfully.")
+            except Exception as e:
+                messagebox.showerror("Database Error", f"Failed to return item: {str(e)}")
+                print(e)
 
     def handle_renew(self):
+        """Handles renew operations for selected items."""
         item = self.get_selected_item()
         if item:
-            # Implement the renew functionality here
-            pass
+            transaction_id = item[0]  # Assuming the first value in the item tuple is the transaction ID
 
-    def search_items(self):
-        # Filter and update the table with search results
-        pass
-
-    def get_all_items(self):
-        # Placeholder for a database query to get all items (books, serials, DVDs)
-        return [
-            {'title': 'Example Book Title', 'isbn': '1234567890123', 'borrow date': '1/2/12', 'return date': 'Never'},
-            {'title': 'Example DVD Title', 'isbn': '9876543210987', 'borrow date': '1/3/12', 'return date': 'Maybe'},
-            # ... add more items
-        ]
-
-# The actual transaction logic would interact with the database to check out, return, or renew items.
+            try:
+                with connection.cursor() as cursor:
+                    cursor.execute("""
+                        UPDATE Transactions
+                        SET TransactionDate = SYSDATE
+                        WHERE TransactionID = :1 AND TransactionType = 'checkout'
+                    """, (transaction_id,))
+                    connection.commit()
+                messagebox.showinfo("Renew", f"Transaction {transaction_id} renewed successfully.")
+            except Exception as e:
+                messagebox.showerror("Database Error", f"Failed to renew transaction: {str(e)}")
+                print(e)
